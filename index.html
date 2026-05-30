@@ -431,6 +431,9 @@ function drawTitle(){
   ctx.fillStyle='#fff'; ctx.font='18px Comic Sans MS,cursive'; ctx.textAlign='center';
   ctx.fillText('Type letters and words — collect them all! 🌟', W/2, 320);
   if(Math.floor(Date.now()/600)%2===0){ ctx.fillStyle='#FFD700'; ctx.font='bold 22px Comic Sans MS,cursive'; ctx.fillText('Press ENTER to start! 🎹', W/2, 368); }
+  // version stamp
+  ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.font='11px monospace'; ctx.textAlign='right';
+  ctx.fillText('v2026-05-30  21:00', W-10, H-6);
 }
 
 function drawLevelUpScreen(){
@@ -526,13 +529,11 @@ function afterReveal(){
 
 function onWrongKey(){
   sfx.bad();
-  S.typed='';
-  S.lives--;
-  S.charAnim='hit'; S.stateTimer=50;  // ~0.8s hit stun (no input during this)
+  S.typed='';                          // just reset the word — no life lost
+  S.charAnim='hit'; S.stateTimer=40;  // short stun so kid sees the mistake
   S.enemyX=820; S.enemyVisible=true;
   S.projX=820; S.projY=GY-35; S.projActive=true;
-  spawnParts(S.charX, S.charY,'#E74C3C',10);
-  if(S.lives<=0){ setTimeout(()=>{ S.state='gameover'; sfx.bad(); },800); }
+  spawnParts(S.charX, S.charY,'#E74C3C',8);
   updateHUD();
 }
 
