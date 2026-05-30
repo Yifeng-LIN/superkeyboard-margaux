@@ -326,37 +326,61 @@ function drawBG(lv){
 }
 
 // ── Challenge card ──────────────────────────────────
+// Shows the full target word on top, typed input below.
 function drawCard(item, typed){
-  const cx=W/2, cy=54;
-  ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=12;
-  rrect(cx-165,cy-40,330,78,18,'#1a0a2ecc',null);
+  const cx=W/2, cy=56;
+  const cardH = 100;
+
+  ctx.shadowColor='rgba(0,0,0,0.4)'; ctx.shadowBlur=14;
+  rrect(cx-170,cy-44,340,cardH,18,'#1a0a2ecc',null);
   ctx.shadowBlur=0;
-  const p=.5+Math.sin(Date.now()*.004)*.5;
+  const p=.45+Math.sin(Date.now()*.004)*.45;
   ctx.strokeStyle=`rgba(255,215,0,${p})`; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.roundRect(cx-165,cy-40,330,78,18); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(cx-170,cy-44,340,cardH,18); ctx.stroke();
 
-  ctx.fillStyle='#FFD700aa'; ctx.font='bold 12px Comic Sans MS,cursive'; ctx.textAlign='center';
-  ctx.fillText('⌨️  TYPE  ⌨️', cx, cy-22);
+  // ── target word (always fully visible) ──
+  ctx.fillStyle='#FFD700bb'; ctx.font='bold 11px Comic Sans MS,cursive'; ctx.textAlign='center';
+  ctx.fillText('READ & TYPE', cx, cy-26);
 
-  const word=item.w;
-  const lw=Math.min(40,280/word.length);
-  const sx=cx-(word.length*lw)/2+lw/2;
-  for(let i=0;i<word.length;i++){
-    const lx=sx+i*lw, ly=cy+18;
-    if(i<typed.length){
-      rrect(lx-lw/2+2,ly-22,lw-4,30,7,'#2ECC71',null);
-      ctx.fillStyle='#fff'; ctx.font=`bold ${Math.min(26,lw-4)}px Comic Sans MS,cursive`;
-      ctx.textAlign='center'; ctx.fillText(word[i],lx,ly+6);
-    } else if(i===typed.length){
-      const blink=Math.sin(Date.now()*.01)>0;
-      rrect(lx-lw/2+2,ly-22,lw-4,30,7,blink?'#FFD700':'#FFA500',null);
-      ctx.fillStyle='#1a0a2e'; ctx.font=`bold ${Math.min(26,lw-4)}px Comic Sans MS,cursive`;
-      ctx.textAlign='center'; ctx.fillText(word[i],lx,ly+6);
-    } else {
-      rrect(lx-lw/2+2,ly-22,lw-4,30,7,'#ffffff1a','#ffffff44');
-      ctx.fillStyle='#ffffffbb'; ctx.font=`bold ${Math.min(26,lw-4)}px Comic Sans MS,cursive`;
-      ctx.textAlign='center'; ctx.fillText(word[i],lx,ly+6);
-    }
+  const word = item.w;
+  const fontSize = Math.min(30, 260/Math.max(word.length,1));
+  ctx.fillStyle='#fff'; ctx.font=`bold ${fontSize}px Comic Sans MS,cursive`;
+  ctx.textAlign='center'; ctx.letterSpacing='4px';
+  ctx.fillText(word, cx, cy+2);
+  ctx.letterSpacing='0px';
+
+  // divider
+  ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(cx-140,cy+12); ctx.lineTo(cx+140,cy+12); ctx.stroke();
+
+  // ── typed input area ──
+  const inputY = cy + 38;
+  // background pill
+  rrect(cx-130, inputY-20, 260, 30, 10, 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.2)', 1.5);
+
+  if(typed.length===0){
+    // placeholder
+    ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font=`16px Comic Sans MS,cursive`;
+    ctx.textAlign='center';
+    ctx.fillText('start typing…', cx, inputY+3);
+  } else {
+    // show typed letters — green if matching prefix, red if wrong
+    const isGood = word.startsWith(typed);
+    const color  = isGood ? '#2ECC71' : '#E74C3C';
+    ctx.fillStyle=color;
+    ctx.font=`bold ${Math.min(22, 240/Math.max(typed.length,1))}px Comic Sans MS,cursive`;
+    ctx.textAlign='center'; ctx.letterSpacing='3px';
+    ctx.fillText(typed, cx, inputY+4);
+    ctx.letterSpacing='0px';
+  }
+
+  // blinking cursor
+  if(Math.sin(Date.now()*.01)>0){
+    const tw = typed.length===0 ? 0 :
+      (() => { ctx.font=`bold ${Math.min(22,240/Math.max(typed.length,1))}px Comic Sans MS,cursive`; return ctx.measureText(typed).width; })();
+    const curX = cx + tw/2 + 4;
+    ctx.strokeStyle='#FFD700'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(curX,inputY-14); ctx.lineTo(curX,inputY+8); ctx.stroke();
   }
 }
 
@@ -657,22 +681,31 @@ document.addEventListener('keydown', e=>{
     return;
   }
 
-  // letter keys — only accepted while actively playing (not during celebrate/hit/reveal)
+  // letter/backspace keys — only while actively playing
   if(S.state!=='playing') return;
   if(S.charAnim==='celebrate'||S.charAnim==='hit') return;
 
-  const ch = e.key.toUpperCase();           // ← case insensitive
+  const item=cItem(); if(!item) return;
+
+  // Backspace — delete last typed letter
+  if(e.key==='Backspace'){
+    S.typed = S.typed.slice(0,-1);
+    return;
+  }
+
+  const ch = e.key.toUpperCase();           // case insensitive: a=A
   if(ch.length!==1 || !/[A-Z]/.test(ch)) return;
 
-  const item=cItem(); if(!item) return;
-  const expected = item.w[S.typed.length];
+  const candidate = S.typed + ch;
 
-  if(ch===expected){
-    S.typed+=ch;
+  if(item.w.startsWith(candidate)){
+    // correct so far — accumulate
+    S.typed = candidate;
     sfx.key();
     spawnParts(S.charX+10, S.charY-30,'#FFD700',4);
-    if(S.typed===item.w) onWordComplete();
+    if(S.typed===item.w) onWordComplete();  // full word → collect!
   } else {
+    // wrong letter — shake, keep what was typed correct so far, reset
     onWrongKey();
   }
 });
