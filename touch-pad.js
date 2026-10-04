@@ -82,7 +82,7 @@
     /* barre du haut : retour + plein écran */
     '#tp-top{position:absolute;left:calc(10px + env(safe-area-inset-left));top:calc(10px + env(safe-area-inset-top));display:flex;gap:8px}',
     '#tp-top button{height:42px;padding:0 15px;border-radius:21px;font-size:16px}',
-    '#tp-fs{position:absolute;right:calc(10px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));width:42px;height:42px;border-radius:50%;font-size:19px}',
+    '#tp-top button.fs{width:42px;padding:0;border-radius:21px;font-size:18px}',
     '#tp-sheet{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;pointer-events:auto;padding:16px}',
     '#tp-sheet.open{display:flex}',
     '#tp-sheet>div{background:#fff;border-radius:22px;padding:16px;max-width:min(560px,94vw);max-height:84vh;overflow-y:auto;touch-action:pan-y;box-shadow:0 18px 50px rgba(0,0,0,.45)}',
@@ -90,6 +90,12 @@
     '#tp-sheet .gr{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:9px}',
     '#tp-sheet .gr button{height:52px;border-radius:14px;font-size:15px;padding:0 10px}',
     '#tp-sheet .cl{margin-top:12px;width:100%;height:46px;border-radius:14px;font-size:16px}',
+    '#tp-rot{position:fixed;inset:0;background:rgba(10,14,25,.93);color:#fff;z-index:2147483100;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}',
+    '#tp-rot.on{display:flex}',
+    '#tp-rot .ph{font-size:72px;animation:tprot 1.8s ease-in-out infinite}',
+    '@keyframes tprot{0%,40%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}',
+    '#tp-rot p{font-size:20px;font-weight:700;margin-top:18px;line-height:1.5}',
+    '#tp-rot small{display:block;font-size:14px;opacity:.7;margin-top:10px}',
     '#tp-help{position:absolute;left:50%;transform:translateX(-50%);top:calc(62px + env(safe-area-inset-top));max-width:76vw;text-align:center;',
     'background:rgba(0,0,0,.5);color:#fff;font-size:13px;padding:6px 12px;border-radius:12px;transition:opacity .7s;pointer-events:none}',
     '#tp-help.gone{opacity:0}',
@@ -131,18 +137,17 @@
       else t.addEventListener('pointerdown', function (e) { e.preventDefault(); switchOn(); press(b.code, b.key || KEYNAMES[b.code] || '', false); setTimeout(function () { release(b.code); }, 90); });
       top.appendChild(t);
     });
-    root.appendChild(top);
-
     var doc = document.documentElement;
-    if (doc.requestFullscreen || doc.webkitRequestFullscreen) {
-      var fs = el('button', 'tp-fs', '⛶');
+    if (cfg.fullscreen !== false && (doc.requestFullscreen || doc.webkitRequestFullscreen)) {
+      var fs = el('button', 'tp-fs', '⛶'); fs.className = 'fs';
       fs.addEventListener('click', function () {
         var cur = document.fullscreenElement || document.webkitFullscreenElement;
         if (cur) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
         else { var r = doc.requestFullscreen || doc.webkitRequestFullscreen; var p = r.call(doc); if (p && p.catch) p.catch(function () {}); }
       });
-      root.appendChild(fs);
+      top.appendChild(fs);
     }
+    root.appendChild(top);
 
     /* --- déplacement --- */
     var map = cfg.dpad;
@@ -185,6 +190,16 @@
       var open = el('button', null, (cfg.menu.label || '⚙') + '<small>actions</small>');
       open.addEventListener('click', function () { switchOn(); sheet.classList.add('open'); });
       top.appendChild(open);
+    }
+    if (cfg.landscape) {
+      var rot = el('div', 'tp-rot', '<div class="ph">📱</div><p>Tourne ton téléphone<br>pour jouer !</p><small>Ce jeu se joue en écran large</small>');
+      document.body.appendChild(rot);
+      var checkRot = function () {
+        var portrait = innerHeight > innerWidth && innerWidth < 820;
+        rot.classList.toggle('on', !!(portrait && (active || used)));
+      };
+      addEventListener('resize', checkRot); addEventListener('orientationchange', function () { setTimeout(checkRot, 300); });
+      window.__tpCheckRot = checkRot; setTimeout(checkRot, 50);
     }
     if (cfg.help) {
       var h = el('div', 'tp-help', cfg.help); root.appendChild(h);
@@ -236,6 +251,7 @@
     if (used) return; used = true;
     if (!active) { active = true; if (root) root.classList.remove('off'); }
     document.body.classList.add('tp-on');
+    if (window.__tpCheckRot) window.__tpCheckRot();
   }
 
   function init(options) {
@@ -244,6 +260,10 @@
       build();
       addEventListener('touchstart', function () { switchOn(); }, { passive: true });
       addEventListener('blur', releaseAll);
+      // iOS renvoie des dimensions périmées juste après la rotation : on relance plusieurs fois
+      function nudge() { [50, 200, 450, 900].forEach(function (d) { setTimeout(function () { dispatchEvent(new Event('resize')); }, d); }); }
+      addEventListener('orientationchange', nudge);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', nudge);
       document.addEventListener('visibilitychange', function () { if (document.hidden) releaseAll(); });
       // pas de zoom ni de rebond de page sur tablette
       ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) { document.addEventListener(ev, function (e) { e.preventDefault(); }); });
