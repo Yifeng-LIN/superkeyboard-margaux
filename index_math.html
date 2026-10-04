@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>SuperMaths Margaux 🌟</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -692,6 +692,41 @@ document.addEventListener('keydown', e=>{
     onWrong();
   }
 });
+</script>
+
+<script src="touch-pad.js"></script>
+<script>
+// --- tablette / téléphone : champ invisible pour faire apparaître le clavier virtuel ---
+(function(){
+  var coarse = matchMedia('(any-pointer: coarse)').matches || (navigator.maxTouchPoints||0) > 0;
+  if (!coarse) return;
+  var inp = document.createElement('input');
+  inp.setAttribute('type','text'); inp.setAttribute('autocomplete','off'); inp.setAttribute('autocorrect','off');
+  inp.setAttribute('autocapitalize','none'); inp.setAttribute('spellcheck','false');
+  inp.style.cssText = 'position:fixed;left:50%;bottom:0;width:2px;height:2px;opacity:0.01;border:0;padding:0;z-index:1;font-size:16px';
+  document.body.appendChild(inp);
+  function focus(){ try { inp.focus({ preventScroll:true }); } catch(e) { inp.focus(); } }
+  var tip = document.createElement('button');
+  tip.textContent = '⌨️ Afficher le clavier';
+  tip.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:2147483000;'
+    + 'border:3px solid #fff;border-radius:22px;padding:12px 20px;font:700 16px system-ui;background:#fff;color:#1d3557;box-shadow:0 6px 18px rgba(0,0,0,.35)';
+  tip.addEventListener('click', focus);
+  document.body.appendChild(tip);
+  // ce que l'on tape dans le champ est renvoyé au jeu sous forme de touches
+  inp.addEventListener('input', function(){
+    var v = inp.value; inp.value = '';
+    for (var i = 0; i < v.length; i++) {
+      var ch = v[i];
+      ['keydown','keypress','keyup'].forEach(function(t){
+        var ev = new KeyboardEvent(t, { key:ch, bubbles:true, cancelable:true });
+        try { Object.defineProperty(ev, 'keyCode', { get:function(){ return ch.toUpperCase().charCodeAt(0); } }); } catch(e){}
+        document.dispatchEvent(ev);
+      });
+    }
+  });
+  addEventListener('touchstart', focus, { passive:true });
+})();
+TouchPad.init({ dpad:false, buttons:[], home:'https://yifeng-lin.github.io/jeumargaux/' });
 </script>
 </body>
 </html>
